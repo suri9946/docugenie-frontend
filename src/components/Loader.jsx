@@ -1,11 +1,11 @@
 export default function Loader() {
   return (
-    <div className="flex items-center justify-center h-full">
+    <div className="flex h-full items-center justify-center">
       <div className="text-center">
         <div className="inline-block">
-          <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <div className="h-12 w-12 rounded-full border-4 border-teal-100 border-t-teal-600 animate-spin"></div>
         </div>
-        <p className="mt-4 text-gray-600 font-medium">Generating document...</p>
+        <p className="mt-4 font-semibold text-slate-700">Generating document...</p>
       </div>
     </div>
   )

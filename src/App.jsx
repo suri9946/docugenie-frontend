@@ -33,22 +33,33 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto h-screen md:h-[calc(100vh-3rem)]">
-        {/* Main Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
-          {/* Left: Form */}
-          <div className="flex flex-col min-h-0">
+    <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-7xl flex-col">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">
+              Academic workspace
+            </p>
+            <h1 className="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl">
+              DocuGenie
+            </h1>
+          </div>
+          <div className="rounded-full border border-white/80 bg-white/75 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm">
+            Draft, preview, and export from one clean desk
+          </div>
+        </div>
+
+        <div className="grid flex-1 grid-cols-1 gap-5 lg:grid-cols-[0.92fr_1.08fr]">
+          <div className="flex min-h-0 flex-col">
             <Form onSubmit={handleGenerateDocument} loading={loading} />
             {error && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-700">{error}</p>
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 shadow-sm">
+                <p className="text-sm font-medium text-red-700">{error}</p>
               </div>
             )}
           </div>
 
-          {/* Right: Preview */}
-          <div className="flex flex-col min-h-0">
+          <div className="flex min-h-[34rem] flex-col lg:min-h-0">
             <Preview
               preview={preview}
               locked={locked}
@@ -58,7 +69,7 @@ function App() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   )
 }
 
