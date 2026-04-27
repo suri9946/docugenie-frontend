@@ -149,17 +149,18 @@ export default function Form({ onSubmit, loading }) {
 
         <div>
           <label className="field-label">Reference Document (Optional)</label>
+          <p className="text-xs text-slate-500 mb-2">Supports .txt, .doc, .docx files as structural blueprint</p>
           <div className="space-y-2">
             <label className="relative block cursor-pointer">
               <input
                 type="file"
-                accept=".txt"
+                accept=".txt,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 onChange={handleReferenceFileUpload}
                 disabled={loading}
                 className="sr-only"
               />
               <span className="inline-flex w-full items-center justify-center rounded-xl border border-dashed border-teal-300 bg-teal-50/70 px-4 py-3 text-sm font-semibold text-teal-800 transition hover:border-teal-500 hover:bg-teal-100">
-                Upload .txt reference
+                Upload .txt, .doc, or .docx
               </span>
             </label>
             {referenceFileName && (

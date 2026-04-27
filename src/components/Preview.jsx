@@ -1,17 +1,87 @@
 import { useState } from 'react'
-import { downloadDocument } from '../services/api'
-
-const PAYMENT_LAUNCH_MESSAGE = 'Downloads will be enabled when payments launch.'
+import { downloadDocument, initiateUPIPayment, verifyPayment } from '../services/api'
 
 export default function Preview({ preview, locked, loading, documentId }) {
-  const [paymentNotice, setPaymentNotice] = useState('')
+  const [paymentStatus, setPaymentStatus] = useState('idle') // idle, loading, processing, success, error
+  const [paymentError, setPaymentError] = useState('')
+  const [selectedProvider, setSelectedProvider] = useState(null)
+  const [transactionRef, setTransactionRef] = useState(null)
+
   const wordCount = preview.split(/\s+/).filter(Boolean).length
 
-  const handlePaymentsComingSoon = () => {
-    setPaymentNotice(PAYMENT_LAUNCH_MESSAGE)
+  const upiProviders = [
+    { id: 'google_pay', name: 'Google Pay', icon: '🔵' },
+    { id: 'phonepe', name: 'PhonePe', icon: '💜' },
+    { id: 'paytm', name: 'Paytm', icon: '🔵' },
+    { id: 'generic', name: 'Generic UPI', icon: '↔️' },
+  ]
+
+  const handleInitiatePayment = async (provider) => {
+    try {
+      setPaymentStatus('loading')
+      setPaymentError('')
+      setSelectedProvider(provider)
+
+      const response = await initiateUPIPayment({
+        documentId,
+        provider,
+        amount: 20,
+      })
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to initiate payment')
+      }
+
+      setTransactionRef(response.data.transactionRef)
+      setPaymentStatus('processing')
+
+      // Open the UPI deep link
+      if (response.data.deepLink) {
+        window.location.href = response.data.deepLink
+
+        // Poll for payment verification after a delay
+        setTimeout(() => verifyPaymentAfterReturn(), 2000)
+      }
+    } catch (err) {
+      console.error('Payment initiation error:', err)
+      setPaymentError(err.message || 'Failed to initiate payment')
+      setPaymentStatus('error')
+      setSelectedProvider(null)
+    }
   }
 
-  // TODO: Re-enable Razorpay by restoring the checkout flow here when payments launch.
+  const verifyPaymentAfterReturn = async () => {
+    if (!transactionRef) return
+
+    try {
+      setPaymentStatus('loading')
+      const response = await verifyPayment({
+        transactionRef,
+        documentId,
+      })
+
+      if (response.success && response.data.verified) {
+        setPaymentStatus('success')
+        // Trigger parent component to refresh or unlock
+        setTimeout(() => {
+          window.location.reload()
+        }, 2000)
+      } else {
+        setPaymentStatus('idle')
+      }
+    } catch (err) {
+      console.error('Payment verification error:', err)
+      setPaymentStatus('idle')
+    }
+  }
+
+  const handleManualVerify = async () => {
+    if (!transactionRef) {
+      setPaymentError('No transaction reference available')
+      return
+    }
+    await verifyPaymentAfterReturn()
+  }
 
   return (
     <section className="app-panel flex h-full flex-col overflow-hidden">
@@ -24,13 +94,23 @@ export default function Preview({ preview, locked, loading, documentId }) {
         </div>
 
         {locked ? (
-          <button
-            onClick={handlePaymentsComingSoon}
-            disabled={loading}
-            className="primary-button bg-gradient-to-r from-slate-950 via-teal-800 to-sky-700 shadow-sky-100 hover:from-slate-900 hover:via-teal-700 hover:to-sky-600"
-          >
-            Payments Coming Soon
-          </button>
+          paymentStatus === 'success' ? (
+            <button
+              onClick={() => downloadDocument(documentId)}
+              disabled={loading}
+              className="primary-button bg-green-600 hover:bg-green-700"
+            >
+              ✓ Download Unlocked
+            </button>
+          ) : (
+            <button
+              onClick={() => setPaymentStatus(paymentStatus === 'idle' ? 'processing' : 'idle')}
+              disabled={loading || paymentStatus === 'loading'}
+              className="primary-button bg-gradient-to-r from-slate-950 via-teal-800 to-sky-700 shadow-sky-100 hover:from-slate-900 hover:via-teal-700 hover:to-sky-600"
+            >
+              {paymentStatus === 'loading' ? 'Processing...' : paymentStatus === 'processing' ? 'Verify Payment' : 'Unlock with UPI'}
+            </button>
+          )
         ) : (
           <button
             onClick={() => downloadDocument(documentId)}
@@ -42,21 +122,58 @@ export default function Preview({ preview, locked, loading, documentId }) {
         )}
       </div>
 
-      {paymentNotice && (
-        <div className="border-b border-amber-200 bg-amber-50 px-5 py-4">
-          <div className="flex items-start justify-between gap-3">
+      {/* Payment UI */}
+      {locked && paymentStatus !== 'success' && (
+        <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
+          {paymentStatus === 'idle' && (
             <div>
-              <p className="text-sm font-bold text-amber-950">Payments Coming Soon</p>
-              <p className="mt-1 text-sm text-amber-800">{paymentNotice}</p>
+              <p className="text-sm font-bold text-slate-900 mb-3">
+                Full document access: ₹20
+              </p>
+              <p className="text-xs text-slate-600 mb-4">
+                Choose your UPI app to complete payment securely
+              </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setPaymentNotice('')}
-              className="text-sm font-semibold text-amber-700 hover:text-amber-950"
-            >
-              Close
-            </button>
-          </div>
+          )}
+
+          {paymentStatus === 'processing' && (
+            <div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                {upiProviders.map((provider) => (
+                  <button
+                    key={provider.id}
+                    onClick={() => handleInitiatePayment(provider.id)}
+                    disabled={loading}
+                    className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition ${selectedProvider === provider.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-slate-300 hover:border-blue-400'
+                      }`}
+                  >
+                    <span className="text-lg">{provider.icon}</span>
+                    <span className="text-xs font-medium">{provider.name}</span>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={handleManualVerify}
+                className="text-xs text-slate-600 hover:text-slate-900 underline"
+              >
+                Already paid? Verify manually
+              </button>
+            </div>
+          )}
+
+          {paymentError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <p className="text-sm text-red-700">{paymentError}</p>
+              <button
+                onClick={() => setPaymentStatus('idle')}
+                className="text-xs text-red-600 hover:text-red-800 mt-1 underline"
+              >
+                Try again
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -73,9 +190,8 @@ export default function Preview({ preview, locked, loading, documentId }) {
         ) : preview ? (
           <div className="relative flex-1 overflow-auto p-5 sm:p-7">
             <article
-              className={`mx-auto min-h-full max-w-3xl rounded-xl border border-slate-200 bg-white px-6 py-7 text-sm leading-7 text-slate-700 shadow-[0_18px_45px_rgba(15,23,42,0.08)] sm:px-9 ${
-                locked ? 'blur-sm' : ''
-              }`}
+              className={`mx-auto min-h-full max-w-3xl rounded-xl border border-slate-200 bg-white px-6 py-7 text-sm leading-7 text-slate-700 shadow-[0_18px_45px_rgba(15,23,42,0.08)] sm:px-9 ${locked && paymentStatus !== 'success' ? 'blur-sm' : ''
+                }`}
             >
               <div className="mb-5 flex items-center gap-2 border-b border-slate-100 pb-4">
                 <span className="h-2.5 w-2.5 rounded-full bg-rose-400"></span>
@@ -85,11 +201,11 @@ export default function Preview({ preview, locked, loading, documentId }) {
               <div className="whitespace-pre-wrap">{preview}</div>
             </article>
 
-            {locked && (
+            {locked && paymentStatus !== 'success' && (
               <div className="absolute inset-0 flex items-end justify-center bg-gradient-to-b from-transparent via-white/10 to-white px-5 pb-8">
                 <div className="max-w-sm rounded-2xl border border-white bg-white/95 px-6 py-5 text-center shadow-2xl shadow-slate-200 backdrop-blur">
                   <p className="text-sm font-bold text-slate-950">Locked Preview</p>
-                  <p className="mt-2 text-sm text-slate-500">{PAYMENT_LAUNCH_MESSAGE}</p>
+                  <p className="mt-2 text-sm text-slate-500">Full document unlocks after payment (₹20)</p>
                 </div>
               </div>
             )}
@@ -112,8 +228,8 @@ export default function Preview({ preview, locked, loading, documentId }) {
       {preview && (
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-white px-6 py-3 text-xs font-semibold text-slate-500">
           <span>Words: {wordCount}</span>
-          <span className={locked ? 'text-amber-700' : 'text-emerald-700'}>
-            Status: {locked ? 'Locked' : 'Unlocked'}
+          <span className={locked && paymentStatus !== 'success' ? 'text-amber-700' : 'text-emerald-700'}>
+            Status: {paymentStatus === 'success' ? 'Unlocked ✓' : locked ? 'Locked' : 'Unlocked'}
           </span>
         </div>
       )}

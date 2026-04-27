@@ -50,8 +50,45 @@ export const generateDocument = async (payload) => {
 }
 
 export const downloadDocument = (documentId) => {
-  const downloadUrl = `${API_URL}/documents/${documentId}/download`
+  const downloadUrl = `${API_URL}/download/${documentId}`
   window.open(downloadUrl, '_blank')
+}
+
+// UPI Payment Functions
+export const initiateUPIPayment = async ({ documentId, provider, amount = 20 }) => {
+  try {
+    const response = await apiClient.post('/payment/upi/generate', {
+      documentId,
+      provider,
+      amount,
+    })
+    return response.data
+  } catch (error) {
+    throw error
+  }
+}
+
+export const verifyPayment = async ({ transactionRef, documentId }) => {
+  try {
+    const response = await apiClient.post('/payment/upi/verify', {
+      transactionRef,
+      documentId,
+    })
+    return response.data
+  } catch (error) {
+    throw error
+  }
+}
+
+export const getPaymentStatus = async ({ documentId }) => {
+  try {
+    const response = await apiClient.get('/payment/upi/status', {
+      params: { documentId },
+    })
+    return response.data
+  } catch (error) {
+    throw error
+  }
 }
 
 export default apiClient
